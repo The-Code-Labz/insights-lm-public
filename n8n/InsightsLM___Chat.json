@@ -20,7 +20,7 @@
       "credentials": {
         "httpHeaderAuth": {
           "id": "39evQ95L86jhtb3I",
-          "name": "MyNoteBookLM Auth"
+          "name": "Header Auth account 2"
         }
       }
     },
@@ -61,8 +61,8 @@
       "name": "Postgres Chat Memory",
       "credentials": {
         "postgres": {
-          "id": "OuPBM6n0hyobX8h6",
-          "name": "Postgres account"
+          "id": "fG459Sx2SeLZz6Dg",
+          "name": "Postgres account 9"
         }
       }
     },
@@ -100,7 +100,7 @@
       "credentials": {
         "supabaseApi": {
           "id": "OeYUddl4OaIohMCC",
-          "name": "MynotebookLM Supabase"
+          "name": "Supabase account 11"
         }
       }
     },
@@ -119,19 +119,20 @@
       "credentials": {
         "openAiApi": {
           "id": "hNalDChhNUDtYG7T",
-          "name": "OpenAi account"
+          "name": "OpenAi account 4"
         }
       }
     },
     {
       "parameters": {
-        "jsonSchemaExample": "{\n\t\"output\": [\n  {\n    \"text\": \"Formula 1 (also known as Formula One) is a premier motorsport championship organized by the FIA...\",\n    \"citations\": [\n      {\n        \"chunk_index\": 0,\n        \"chunk_source_id\": \"701bd18c-2531-48e5-8d09-df22e7cc3d21\",\n        \"chunk_lines_from\": 25,\n        \"chunk_lines_to\": 50\n      }\n    ]\n  },\n  {\n    \"text\": \"Formula 1 (also known as Formula One) is a premier motorsport championship organized by the FIA...\",\n    \"citations\": [\n      {\n        \"chunk_index\": 0,\n        \"chunk_source_id\": \"701bd18c-2531-48e5-8d09-df22e7cc3d21\",\n        \"chunk_lines_from\": 25,\n        \"chunk_lines_to\": 50\n      }\n    ]\n  }\n]\n}"
+        "jsonSchemaExample": "{\n\t\"output\": [\n  {\n    \"text\": \"Formula 1 (also known as Formula One) is a premier motorsport championship organized by the FIA...\",\n    \"citations\": [\n      {\n        \"chunk_index\": 0,\n        \"chunk_source_id\": \"701bd18c-2531-48e5-8d09-df22e7cc3d21\",\n        \"chunk_lines_from\": 25,\n        \"chunk_lines_to\": 50\n      }\n    ]\n  },\n  {\n    \"text\": \"Formula 1 (also known as Formula One) is a premier motorsport championship organized by the FIA...\",\n    \"citations\": [\n      {\n        \"chunk_index\": 0,\n        \"chunk_source_id\": \"701bd18c-2531-48e5-8d09-df22e7cc3d21\",\n        \"chunk_lines_from\": 25,\n        \"chunk_lines_to\": 50\n      }\n    ]\n  }\n]\n}",
+        "autoFix": true
       },
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.2,
       "position": [
-        864,
-        528
+        576,
+        464
       ],
       "id": "9586db41-3eb7-4bf4-8c4f-9671eb63cd52",
       "name": "Structured Output Parser"
@@ -152,21 +153,20 @@
     },
     {
       "parameters": {
-        "modelName": "models/gemini-2.5-flash-preview-04-17-thinking",
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
       "typeVersion": 1,
       "position": [
         64,
-        704
+        688
       ],
       "id": "4282631f-e42c-4fd9-980d-69aa0c066c96",
       "name": "Google Gemini Chat Model",
       "credentials": {
         "googlePalmApi": {
           "id": "PzC8XiX0nzmyH9AA",
-          "name": "Google Gemini(PaLM) Api account"
+          "name": "Google Gemini(PaLM) Api account 2"
         }
       }
     },
@@ -174,17 +174,17 @@
       "parameters": {
         "model": {
           "__rl": true,
-          "value": "claude-3-7-sonnet-20250219",
+          "value": "claude-sonnet-4-5-20250929",
           "mode": "list",
-          "cachedResultName": "Claude Sonnet 3.7"
+          "cachedResultName": "Claude Sonnet 4.5"
         },
         "options": {}
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.3,
       "position": [
-        -96,
-        704
+        -80,
+        688
       ],
       "id": "e5d9cea8-ad20-422a-9092-9cd509bf7e53",
       "name": "Anthropic Chat Model",
@@ -199,23 +199,25 @@
       "parameters": {
         "model": {
           "__rl": true,
-          "value": "o3",
+          "value": "gpt-5",
           "mode": "list",
-          "cachedResultName": "o3"
+          "cachedResultName": "gpt-5"
         },
-        "options": {}
+        "options": {
+          "responseFormat": "json_object"
+        }
       },
       "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
       "typeVersion": 1.2,
       "position": [
-        224,
-        704
+        208,
+        688
       ],
       "id": "a8d7fd87-2664-453c-a7a0-f806b87be8ae",
       "name": "OpenAI Chat Model1",
       "credentials": {
         "openAiApi": {
-          "id": "xh2u9lLOh2CjFrk7",
+          "id": "hNalDChhNUDtYG7T",
           "name": "OpenAi account 4"
         }
       }
@@ -302,9 +304,19 @@
     },
     "Google Gemini Chat Model": {
       "ai_languageModel": [
+        []
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
         [
           {
             "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Structured Output Parser",
             "type": "ai_languageModel",
             "index": 0
           }
@@ -314,19 +326,14 @@
   },
   "active": false,
   "settings": {
-    "executionOrder": "v1"
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false
   },
-  "versionId": "bd3f9517-b2ae-4577-adaf-cf1ed774a9a9",
+  "versionId": "b03d3e72-f7d3-4b12-a081-d9b2d52b635f",
   "meta": {
     "instanceId": "b5d1ea132a4e071e6288b3143f31284b91560858bdef3f0c88a49f587fc91a29"
   },
-  "id": "P7Pg2I5giQN6WgIJ",
-  "tags": [
-    {
-      "createdAt": "2025-05-12T13:43:59.783Z",
-      "updatedAt": "2025-05-12T13:43:59.783Z",
-      "id": "d3ygIhrGjDmzgrW0",
-      "name": "TheAIAutomators.com"
-    }
-  ]
+  "id": "u4m51AbsQqTrrKhm",
+  "tags": []
 }

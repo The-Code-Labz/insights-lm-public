@@ -13,6 +13,34 @@ serve(async (req) => {
   }
 
   try {
+    // ============ AUTHORIZATION CHECK ============
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Verify user identity using their JWT
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    )
+
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser()
+    if (userError || !user) {
+      console.error('Auth error:', userError)
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('Authenticated user:', user.id)
+    // ============ END AUTHORIZATION CHECK ============
+
     const { notebookId, filePath, sourceType } = await req.json()
 
     if (!notebookId || !sourceType) {
@@ -22,16 +50,45 @@ serve(async (req) => {
       )
     }
 
-    console.log('Processing request:', { notebookId, filePath, sourceType });
+    // Initialize Supabase client with service role for database operations
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    )
+
+    // Verify the user owns this notebook
+    const { data: notebook, error: notebookError } = await supabaseClient
+      .from('notebooks')
+      .select('id, user_id')
+      .eq('id', notebookId)
+      .single()
+
+    if (notebookError || !notebook) {
+      console.error('Notebook lookup error:', notebookError)
+      return new Response(
+        JSON.stringify({ error: 'Notebook not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (notebook.user_id !== user.id) {
+      console.error('User does not own this notebook:', { userId: user.id, ownerId: notebook.user_id })
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - you do not own this notebook' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('Processing request:', { notebookId, filePath, sourceType, userId: user.id });
 
     // Get environment variables
     const webServiceUrl = Deno.env.get('NOTEBOOK_GENERATION_URL')
-    const authHeader = Deno.env.get('NOTEBOOK_GENERATION_AUTH')
+    const webhookAuthHeader = Deno.env.get('NOTEBOOK_GENERATION_AUTH')
 
-    if (!webServiceUrl || !authHeader) {
+    if (!webServiceUrl || !webhookAuthHeader) {
       console.error('Missing environment variables:', {
         hasUrl: !!webServiceUrl,
-        hasAuth: !!authHeader
+        hasAuth: !!webhookAuthHeader
       })
       
       return new Response(
@@ -39,12 +96,6 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
-
-    // Initialize Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
 
     // Update notebook status to 'generating'
     await supabaseClient
@@ -82,7 +133,7 @@ serve(async (req) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authHeader,
+        'Authorization': webhookAuthHeader,
       },
       body: JSON.stringify(payload)
     })
@@ -146,7 +197,7 @@ serve(async (req) => {
     }
 
     // Update notebook with generated content including icon, color, and example questions
-    const { error: notebookError } = await supabaseClient
+    const { error: updateError } = await supabaseClient
       .from('notebooks')
       .update({
         title: title,
@@ -158,8 +209,8 @@ serve(async (req) => {
       })
       .eq('id', notebookId)
 
-    if (notebookError) {
-      console.error('Notebook update error:', notebookError)
+    if (updateError) {
+      console.error('Notebook update error:', updateError)
       return new Response(
         JSON.stringify({ error: 'Failed to update notebook' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

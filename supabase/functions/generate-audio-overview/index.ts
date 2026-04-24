@@ -13,6 +13,36 @@ serve(async (req) => {
   }
 
   try {
+    // ============ AUTHORIZATION CHECK ============
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+
+    // Verify user identity using their JWT
+    const supabaseAuth = createClient(
+      supabaseUrl,
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    )
+
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser()
+    if (userError || !user) {
+      console.error('Auth error:', userError)
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('Authenticated user:', user.id)
+    // ============ END AUTHORIZATION CHECK ============
+
     const { notebookId } = await req.json()
     
     if (!notebookId) {
@@ -22,9 +52,31 @@ serve(async (req) => {
       )
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+    // Verify the user owns this notebook
+    const { data: notebook, error: notebookError } = await supabase
+      .from('notebooks')
+      .select('id, user_id')
+      .eq('id', notebookId)
+      .single()
+
+    if (notebookError || !notebook) {
+      console.error('Notebook lookup error:', notebookError)
+      return new Response(
+        JSON.stringify({ error: 'Notebook not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    if (notebook.user_id !== user.id) {
+      console.error('User does not own this notebook:', { userId: user.id, ownerId: notebook.user_id })
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - you do not own this notebook' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
 
     // Update notebook status to indicate audio generation has started
     const { error: updateError } = await supabase
@@ -41,9 +93,9 @@ serve(async (req) => {
 
     // Get audio generation webhook URL and auth from secrets
     const audioGenerationWebhookUrl = Deno.env.get('AUDIO_GENERATION_WEBHOOK_URL')
-    const authHeader = Deno.env.get('NOTEBOOK_GENERATION_AUTH')
+    const webhookAuthHeader = Deno.env.get('NOTEBOOK_GENERATION_AUTH')
 
-    if (!audioGenerationWebhookUrl || !authHeader) {
+    if (!audioGenerationWebhookUrl || !webhookAuthHeader) {
       console.error('Missing audio generation webhook URL or auth')
       return new Response(
         JSON.stringify({ error: 'Audio generation service not configured' }),
@@ -62,7 +114,7 @@ serve(async (req) => {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': authHeader,
+              'Authorization': webhookAuthHeader,
             },
             body: JSON.stringify({
               notebook_id: notebookId,

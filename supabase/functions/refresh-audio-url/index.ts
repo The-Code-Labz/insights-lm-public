@@ -14,6 +14,34 @@ serve(async (req) => {
   }
 
   try {
+    // ============ AUTHORIZATION CHECK ============
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Verify user identity using their JWT
+    const supabaseAuth = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    )
+
+    const { data: { user }, error: userError } = await supabaseAuth.auth.getUser()
+    if (userError || !user) {
+      console.error('Auth error:', userError)
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized - invalid or expired token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    console.log('Authenticated user:', user.id)
+    // ============ END AUTHORIZATION CHECK ============
+
     const { notebookId } = await req.json()
 
     if (!notebookId) {
@@ -26,16 +54,25 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     )
 
-    // Get the current notebook to find the audio file path
+    // Get the current notebook and verify ownership
     const { data: notebook, error: fetchError } = await supabase
       .from('notebooks')
-      .select('audio_overview_url')
+      .select('audio_overview_url, user_id')
       .eq('id', notebookId)
       .single()
 
     if (fetchError) {
       console.error('Error fetching notebook:', fetchError)
       throw new Error('Failed to fetch notebook')
+    }
+
+    // Verify the user owns this notebook
+    if (notebook.user_id !== user.id) {
+      console.error('User does not own this notebook:', { userId: user.id, ownerId: notebook.user_id })
+      return new Response(
+        JSON.stringify({ error: 'Forbidden - you do not own this notebook' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
 
     if (!notebook.audio_overview_url) {
